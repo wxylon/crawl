@@ -20,21 +20,20 @@ var separatorBytes = []byte(" ")
 var heartbeatBytes = []byte("_heartbeat_")
 var okBytes = []byte("OK")
 
-type ProtocolV2 struct {
+type ProtocolV1 struct {
 	qc.Protocol
 }
 
 func init() {
-	log.Println("ProtocolV2 ---> init()")
-	protocols[string(qc.MagicV2)] = &ProtocolV2{}
+	protocols[string(qc.MagicV1)] = &ProtocolV1{}
 }
 
-func (p *ProtocolV2) IOLoop(conn net.Conn) error {
+func (p *ProtocolV1) IOLoop(conn net.Conn) error {
 	var err error
 	var line []byte
 	var zeroTime time.Time
 
-	client := NewClientV2(conn)
+	client := NewClientV1(conn)
 	for {
 		if client.HeartbeatInterval > 0 {
 			client.SetReadDeadline(time.Now().Add(client.HeartbeatInterval * 2))
@@ -58,7 +57,7 @@ func (p *ProtocolV2) IOLoop(conn net.Conn) error {
 		params := bytes.Split(line, separatorBytes)
 
 		if *verbose {
-			log.Printf("PROTOCOL(V2): [%s] %s", client, params)
+			log.Printf("PROTOCOL(V1): [%s] %s", client, params)
 		}
 
 		response, err := p.Exec(client, params)
@@ -97,7 +96,7 @@ func (p *ProtocolV2) IOLoop(conn net.Conn) error {
 	return err
 }
 
-func (p *ProtocolV2) Send(client *ClientV2, frameType int32, data []byte) error {
+func (p *ProtocolV1) Send(client *ClientV1, frameType int32, data []byte) error {
 	client.Lock()
 	defer client.Unlock()
 
@@ -114,7 +113,7 @@ func (p *ProtocolV2) Send(client *ClientV2, frameType int32, data []byte) error 
 	return err
 }
 
-func (p *ProtocolV2) Flush(client *ClientV2) error {
+func (p *ProtocolV1) Flush(client *ClientV1) error {
 	client.Lock()
 	defer client.Unlock()
 
@@ -126,7 +125,7 @@ func (p *ProtocolV2) Flush(client *ClientV2) error {
 	return nil
 }
 
-func (p *ProtocolV2) Exec(client *ClientV2, params [][]byte) ([]byte, error) {
+func (p *ProtocolV1) Exec(client *ClientV1, params [][]byte) ([]byte, error) {
 	switch {
 	case bytes.Equal(params[0], []byte("IDENTIFY")):
 		return p.IDENTIFY(client, params)
@@ -134,7 +133,7 @@ func (p *ProtocolV2) Exec(client *ClientV2, params [][]byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (p *ProtocolV2) IDENTIFY(client *ClientV2, params [][]byte) ([]byte, error) {
+func (p *ProtocolV1) IDENTIFY(client *ClientV1, params [][]byte) ([]byte, error) {
 	var err error
 
 	if atomic.LoadInt32(&client.State) != qc.StateInit {
@@ -158,7 +157,7 @@ func (p *ProtocolV2) IDENTIFY(client *ClientV2, params [][]byte) ([]byte, error)
 	}
 
 	// body is a json structure with producer information
-	var identifyData IdentifyDataV2
+	var identifyData IdentifyDataV1
 	err = json.Unmarshal(body, &identifyData)
 	if err != nil {
 		return nil, qc.NewFatalClientErr(err, "E_BAD_BODY", "IDENTIFY failed to decode JSON body")
@@ -190,7 +189,7 @@ func (p *ProtocolV2) IDENTIFY(client *ClientV2, params [][]byte) ([]byte, error)
 	return resp, nil
 }
 
-func (p *ProtocolV2) readLen(client *ClientV2) (int32, error) {
+func (p *ProtocolV1) readLen(client *ClientV1) (int32, error) {
 	client.lenSlice = client.lenSlice[0:]
 	_, err := io.ReadFull(client.Reader, client.lenSlice)
 	if err != nil {
