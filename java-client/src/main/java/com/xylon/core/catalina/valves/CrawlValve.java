@@ -8,6 +8,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -18,6 +21,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.Cookie;
@@ -144,13 +149,42 @@ import org.apache.tomcat.util.buf.B2CConverter;
  * @version $Id: AccessLogValve.java 1495888 2013-06-23 20:25:46Z markt $
  */
 
-public class CrawlValve extends ValveBase implements AccessLog {
+public class CrawlValve extends ValveBase{
+	
+	private final static int _backupThreadCount = Runtime.getRuntime().availableProcessors();
+	
+	private final ExecutorService _executorService;
+	
+	/**
+     * Name of request attribute used to override the remote address recorded by
+     * the AccessLog.
+     */
+    public static final String REMOTE_ADDR_ATTRIBUTE = "org.apache.catalina.AccessLog.RemoteAddr";
+
+    /**
+     * Name of request attribute used to override remote host name recorded by
+     * the AccessLog.
+     */
+    public static final String REMOTE_HOST_ATTRIBUTE = "org.apache.catalina.AccessLog.RemoteHost";
+
+    /**
+     * Name of request attribute used to override the protocol recorded by the
+     * AccessLog.
+     */
+    public static final String PROTOCOL_ATTRIBUTE = "org.apache.catalina.AccessLog.Protocol";
+
+    /**
+     * Name of request attribute used to override the server port recorded by
+     * the AccessLog.
+     */
+    public static final String SERVER_PORT_ATTRIBUTE = "org.apache.catalina.AccessLog.ServerPort";
 
     private static final Log log = LogFactory.getLog(CrawlValve.class);
 
     //------------------------------------------------------ Constructor
     public CrawlValve() {
         super(true);
+        _executorService = Executors.newFixedThreadPool( _backupThreadCount );
     }
 
     // ----------------------------------------------------- Instance Variables
@@ -172,8 +206,7 @@ public class CrawlValve extends ValveBase implements AccessLog {
     /**
      * The descriptive information about this implementation.
      */
-    protected static final String info =
-        "org.apache.catalina.valves.AccessLogValve/2.2";
+    protected static final String info = "org.apache.catalina.valves.AccessLogValve/2.2";
 
 
     /**
@@ -558,18 +591,10 @@ public class CrawlValve extends ValveBase implements AccessLog {
         return enabled;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void setRequestAttributesEnabled(boolean requestAttributesEnabled) {
         this.requestAttributesEnabled = requestAttributesEnabled;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public boolean getRequestAttributesEnabled() {
         return requestAttributesEnabled;
     }
@@ -933,20 +958,22 @@ public class CrawlValve extends ValveBase implements AccessLog {
      * @exception ServletException if a servlet error has occurred
      */
     @Override
-    public void invoke(Request request, Response response) throws IOException,
-            ServletException {
-        getNext().invoke(request, response);
+    public void invoke(Request request, Response response) throws IOException, ServletException {
+    	if(true){
+    		getNext().invoke(request, response);
+    	} else {
+    		
+    	}
     }
+    
 
-
-    @Override
     public void log(Request request, Response response, long time) {
         if (!getState().isAvailable() || !getEnabled() || logElements == null
                 || condition != null
                 && null != request.getRequest().getAttribute(condition)
                 || conditionIf != null
                 && null == request.getRequest().getAttribute(conditionIf)) {
-            return;
+            return ;
         }
 
         /**
@@ -1239,7 +1266,7 @@ public class CrawlValve extends ValveBase implements AccessLog {
      */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
-
+    	
         // Initialize the Date formatters
         String format = getFileDateFormat();
         fileDateFormatter = new SimpleDateFormat(format, Locale.US);

@@ -99,9 +99,9 @@ func (p *ProtocolV1) IOLoop(conn net.Conn) error {
 func (p *ProtocolV1) Send(client *ClientV1, frameType int32, data []byte) error {
 	client.Lock()
 	defer client.Unlock()
-
+	log.Printf("-----------------", string(data))
 	client.SetWriteDeadline(time.Now().Add(time.Second))
-	_, err := qc.SendFramedResponse(client.Writer, frameType, data)
+	dd, err := qc.SendFramedResponse(client.Writer, frameType, data)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (p *ProtocolV1) Send(client *ClientV1, frameType int32, data []byte) error 
 	if frameType != qc.FrameTypeMessage {
 		err = client.Writer.Flush()
 	}
-
+	log.Printf("99", dd)
 	return err
 }
 
@@ -129,6 +129,10 @@ func (p *ProtocolV1) Exec(client *ClientV1, params [][]byte) ([]byte, error) {
 	switch {
 	case bytes.Equal(params[0], []byte("IDENTIFY")):
 		return p.IDENTIFY(client, params)
+	case bytes.Equal(params[0], []byte("SUB")):
+		return p.SUB(client, params)
+	case bytes.Equal(params[0], []byte("GET")):
+		return p.GET(client, params)
 	}
 	return nil, nil
 }
@@ -187,6 +191,46 @@ func (p *ProtocolV1) IDENTIFY(client *ClientV1, params [][]byte) ([]byte, error)
 	}
 
 	return resp, nil
+}
+
+func (p *ProtocolV1) SUB(client *ClientV1, params [][]byte) ([]byte, error) {
+	if atomic.LoadInt32(&client.State) != qc.StateInit {
+		return nil, qc.NewFatalClientErr(nil, "E_INVALID", "cannot SUB in current state")
+	}
+
+	if client.HeartbeatInterval < 0 {
+		return nil, qc.NewFatalClientErr(nil, "E_INVALID", "cannot SUB with heartbeats disabled")
+	}
+
+	topicName := string(params[1])
+	if !qc.IsValidTopicName(topicName) {
+		return nil, qc.NewFatalClientErr(nil, "E_BAD_TOPIC",
+			fmt.Sprintf("SUB topic name '%s' is not valid", topicName))
+	}
+
+	channelName := string(params[2])
+	if !qc.IsValidChannelName(channelName) {
+		return nil, qc.NewFatalClientErr(nil, "E_BAD_CHANNEL",
+			fmt.Sprintf("SUB channel name '%s' is not valid", channelName))
+	}
+
+	return okBytes, nil
+}
+
+func (p *ProtocolV1) GET(client *ClientV1, params [][]byte) ([]byte, error) {
+
+	if atomic.LoadInt32(&client.State) != qc.StateInit {
+		return nil, qc.NewFatalClientErr(nil, "E_INVALID", "cannot SUB in current state")
+	}
+
+	if client.HeartbeatInterval < 0 {
+		return nil, qc.NewFatalClientErr(nil, "E_INVALID", "cannot SUB with heartbeats disabled")
+	}
+
+	msg := string(params[1])
+	log.Printf("msg", msg)
+
+	return okBytes, nil
 }
 
 func (p *ProtocolV1) readLen(client *ClientV1) (int32, error) {

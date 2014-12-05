@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
 	"net"
 	"regexp"
 	"time"
@@ -71,22 +72,23 @@ func SendResponse(w io.Writer, data []byte) (int, error) {
 // SendFramedResponse is a server side utility function to prefix data with a length header
 // and frame header and write to the supplied Writer
 func SendFramedResponse(w io.Writer, frameType int32, data []byte) (int, error) {
+	log.Printf("0")
 	beBuf := make([]byte, 4)
 	size := uint32(len(data)) + 4
-
+	log.Printf("1")
 	binary.BigEndian.PutUint32(beBuf, size)
 	n, err := w.Write(beBuf)
 	if err != nil {
 		return n, err
 	}
-
+	log.Printf("2")
 	binary.BigEndian.PutUint32(beBuf, uint32(frameType))
 	n, err = w.Write(beBuf)
 	if err != nil {
 		return n + 4, err
 	}
-
 	n, err = w.Write(data)
+	log.Printf("n:", n)
 	return n + 8, err
 }
 
